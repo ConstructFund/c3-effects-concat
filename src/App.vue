@@ -207,6 +207,7 @@ export default {
       let fxContent = addon.fx;
       let processedEffects = this.processedEffects;
       let commonUniforms = this.commonUniformsToRemove;
+
       if (id in processedEffects) return;
 
       processedEffects[id] = {};
