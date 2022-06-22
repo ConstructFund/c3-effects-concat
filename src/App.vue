@@ -1,20 +1,49 @@
 <template>
   <v-app>
     <v-app-bar absolute dense flat>
-      <v-toolbar-title>C3 Effects Concatenator</v-toolbar-title>
-      <v-spacer></v-spacer>
-      <v-btn color="primary" @click="onIssue" plain>Report an issue</v-btn>
+      <v-layout row justify-center align-center style="margin: 0px 5px">
+        <v-toolbar-title>C3 Effects Concatenator</v-toolbar-title>
+        <v-spacer></v-spacer>
+        <v-btn color="primary" @click="onIssue" outlined>Report an issue</v-btn>
+        <v-divider vertical style="margin-right: 15px"></v-divider>
+        <v-switch
+          style="align-self: center"
+          v-model="dark"
+          inset
+          hide-details
+          label="Dark mode"
+        ></v-switch>
+      </v-layout>
     </v-app-bar>
     <v-main>
       <!-- file upload button -->
       <v-layout column wrap style="margin: 10em">
-        <v-file-input
+        <!-- <v-file-input
           multiple
           chips
-          label="Add effect addons"
+          v-model="files"
+          label="Add effects"
           @change="onFileChange"
           ref="fileInput"
-        ></v-file-input>
+        ></v-file-input> -->
+        <v-btn
+          style="margin-bottom: 30px"
+          color="primary"
+          outlined
+          :loading="isSelecting"
+          @click="handleFileImport"
+        >
+          Add effects
+        </v-btn>
+
+        <!-- Create a File Input that will be hidden but triggered with JavaScript -->
+        <input
+          ref="uploader"
+          class="d-none"
+          type="file"
+          multiple
+          @change="onFileChanged"
+        />
         <draggable v-model="addons" class="list-group" ghost-class="ghost">
           <transition-group>
             <v-layout
@@ -37,6 +66,32 @@
           Concatenate
         </v-btn>
       </v-layout>
+      <v-dialog v-model="dialog" persistent>
+        <v-card>
+          <v-card-title class="text-h5"> Something went wrong </v-card-title>
+          <v-card-text>
+            An error occurred while trying to concatenate the effects.
+            <v-expansion-panels v-model="panel" focusable multiple>
+              <v-expansion-panel>
+                <v-expansion-panel-header>Error</v-expansion-panel-header>
+                <v-expansion-panel-content style="padding-top: 20px">
+                  {{ error }}
+                </v-expansion-panel-content>
+              </v-expansion-panel>
+            </v-expansion-panels>
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn color="error" text @click="copyError">
+              Copy error data
+            </v-btn>
+            <v-btn color="primary" text @click="onIssue">
+              Report an issue
+            </v-btn>
+            <v-btn color="grey" text @click="dialog = false"> Close </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
     </v-main>
   </v-app>
 </template>
@@ -52,7 +107,13 @@ export default {
   components: { draggable },
 
   data: () => ({
+    panel: [0],
+    error: "bite",
+    dialog: false,
+    dark: false,
+    isSelecting: false,
     addons: [],
+    files: [],
     processedEffects: {},
     commonUniforms: [
       "varying mediump vec2 vTex;",
@@ -99,7 +160,46 @@ export default {
       "uniform mediump float devicePixelRatio;",
     ],
   }),
+  mounted() {
+    // auto select dark mode based on user preference
+    if (localStorage.getItem("dark") === "true") {
+      this.dark = true;
+    } else {
+      // user browser setting
+      if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+        this.dark = true;
+      }
+    }
+  },
+  watch: {
+    dark() {
+      this.$vuetify.theme.dark = this.dark;
+    },
+  },
   methods: {
+    copyError() {
+      navigator.clipboard.writeText(this.error);
+    },
+    handleFileImport() {
+      this.isSelecting = true;
+
+      // After obtaining the focus when closing the FilePicker, return the button state to normal
+      window.addEventListener(
+        "focus",
+        () => {
+          this.isSelecting = false;
+        },
+        { once: true }
+      );
+
+      // Trigger click on the FileInput
+      this.$refs.uploader.click();
+    },
+    onFileChanged(e) {
+      this.files = [...e.target.files];
+      this.onFileChange(this.files);
+      // Do whatever you need with the file, liek reading it with FileReader
+    },
     remove(id) {
       this.addons = this.addons.filter((addon) => addon.id !== id);
     },
@@ -109,6 +209,7 @@ export default {
       );
     },
     onFileChange(files) {
+      this.error = "";
       Promise.all(
         files.map((file) => {
           let zip = new JSZip();
@@ -179,45 +280,49 @@ export default {
                 } else {
                   this.addons.push(addon);
                 }
+              } else {
+                this.error += "Invalid effect addon file: " + file.name + "\n";
+                this.dialog = true;
               }
             })
             .catch((err) => {
               console.log(err);
             });
-          //clear file input
-          // console.log(this.$refs.fileInput);
-          // this.$refs.fileInput.value();
         })
       ).then(() => {
-        //clear file input
-        // console.log(this.$refs.fileInput);
-        // this.$refs.fileInput.value();
+        this.files = [];
         this.addons.forEach((addon) => {
           this.processEffect(addon);
         });
       });
     },
     onGenerate() {
-      let zip = new JSZip();
-      // create effect.fx, addon.json and lang/en-US.json
-      zip.file(
-        "effect.fx",
-        this.concatEffects(this.addons.map((addon) => addon.id))
-      );
-      let addonJson = this.concatData(this.addons.map((addon) => addon.id));
-      zip.file("addon.json", JSON.stringify(addonJson, null, 2));
-      zip.file(
-        "lang/en-US.json",
-        JSON.stringify(
-          this.concatLang(this.addons.map((addon) => addon.id)),
-          null,
-          2
-        )
-      );
-      // download zip
-      zip.generateAsync({ type: "blob" }).then((blob) => {
-        saveAs(blob, addonJson.id + ".c3Addon");
-      });
+      try {
+        let zip = new JSZip();
+        // create effect.fx, addon.json and lang/en-US.json
+        zip.file(
+          "effect.fx",
+          this.concatEffects(this.addons.map((addon) => addon.id))
+        );
+        let addonJson = this.concatData(this.addons.map((addon) => addon.id));
+        zip.file("addon.json", JSON.stringify(addonJson, null, 2));
+        zip.file(
+          "lang/en-US.json",
+          JSON.stringify(
+            this.concatLang(this.addons.map((addon) => addon.id)),
+            null,
+            2
+          )
+        );
+        // download zip
+        zip.generateAsync({ type: "blob" }).then((blob) => {
+          saveAs(blob, addonJson.id + ".c3Addon");
+        });
+      } catch (err) {
+        console.error(err);
+        this.error = err;
+        this.dialog = true;
+      }
     },
     processEffect(addon) {
       let id = addon.id;
@@ -592,7 +697,7 @@ body {
   width: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  overflow: hidden !important;
 }
 
 .list-group {
@@ -618,15 +723,14 @@ body {
 
 .ghost {
   opacity: 0.5;
-  background: #c8ebfb;
+  background: rgba(150, 150, 150, 0.5);
 }
 .list-group-item {
   position: relative;
   display: block;
   padding: 0.75rem 1.25rem;
   margin-bottom: -1px;
-  background-color: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.125);
+  border: 1px solid rgba(150, 150, 150, 0.5);
 }
 
 .list-group-item:first-child {
