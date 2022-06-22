@@ -17,7 +17,8 @@
         ></v-file-input>
         <draggable v-model="addons" class="list-group" ghost-class="ghost">
           <transition-group>
-            <div
+            <v-layout
+              row
               v-for="element in addons"
               :key="element.id"
               class="list-group-item"
@@ -26,7 +27,9 @@
                 >mdi-drag-horizontal-variant</v-icon
               >
               {{ element.name }}
-            </div>
+              <v-spacer></v-spacer>
+              <v-icon @click="remove(element.id)" big>mdi-close</v-icon>
+            </v-layout>
           </transition-group>
         </draggable>
         <!-- generate button -->
@@ -97,6 +100,9 @@ export default {
     ],
   }),
   methods: {
+    remove(id) {
+      this.addons = this.addons.filter((addon) => addon.id !== id);
+    },
     onIssue() {
       window.open(
         "https://github.com/ConstructFund/c3-effects-concat/issues/new"
