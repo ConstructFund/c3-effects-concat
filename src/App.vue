@@ -22,6 +22,9 @@
               :key="element.id"
               class="list-group-item"
             >
+              <v-icon style="margin-right: 10px"
+                >mdi-drag-horizontal-variant</v-icon
+              >
               {{ element.name }}
             </div>
           </transition-group>
