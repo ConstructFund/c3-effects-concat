@@ -17,8 +17,15 @@
     </v-app-bar>
     <v-main>
       <!-- file upload button -->
-      <v-layout column wrap style="margin: 10em">
-        <!-- <v-file-input
+      <v-card
+        @drop.prevent="onDrop($event)"
+        @dragover.prevent="onDrag($event)"
+        @dragenter.prevent="onDrag($event)"
+        @dragleave.prevent="dragover = false"
+        :class="`dragzone` + (dragover ? ` dragover` : ``)"
+      >
+        <v-layout column wrap style="margin: 10em">
+          <!-- <v-file-input
           multiple
           chips
           v-model="files"
@@ -26,46 +33,52 @@
           @change="onFileChange"
           ref="fileInput"
         ></v-file-input> -->
-        <v-btn
-          style="margin-bottom: 30px"
-          color="primary"
-          outlined
-          :loading="isSelecting"
-          @click="handleFileImport"
-        >
-          Add effects
-        </v-btn>
+          <v-btn
+            style="margin-bottom: 30px"
+            color="primary"
+            outlined
+            :loading="isSelecting"
+            @click="handleFileImport"
+          >
+            Add effects
+          </v-btn>
 
-        <!-- Create a File Input that will be hidden but triggered with JavaScript -->
-        <input
-          ref="uploader"
-          class="d-none"
-          type="file"
-          multiple
-          @change="onFileChanged"
-        />
-        <draggable v-model="addons" class="list-group" ghost-class="ghost">
-          <transition-group>
-            <v-layout
-              row
-              v-for="element in addons"
-              :key="element.id"
-              class="list-group-item"
-            >
-              <v-icon style="margin-right: 10px"
-                >mdi-drag-horizontal-variant</v-icon
+          <!-- Create a File Input that will be hidden but triggered with JavaScript -->
+          <input
+            ref="uploader"
+            class="d-none"
+            type="file"
+            multiple
+            @change="onFileChanged"
+          />
+          <draggable v-model="addons" class="list-group" ghost-class="ghost">
+            <transition-group>
+              <v-layout
+                row
+                style="flex-wrap: nowrap"
+                v-for="element in addons"
+                :key="element.id"
+                class="list-group-item"
               >
-              {{ element.name }}
-              <v-spacer></v-spacer>
-              <v-icon @click="remove(element.id)" big>mdi-close</v-icon>
-            </v-layout>
-          </transition-group>
-        </draggable>
-        <!-- generate button -->
-        <v-btn color="primary" @click="onGenerate" :disabled="!addons.length">
-          Concatenate
-        </v-btn>
-      </v-layout>
+                <v-icon style="margin-right: 10px"
+                  >mdi-drag-horizontal-variant</v-icon
+                >
+                <span>{{ element.name }}</span>
+                <v-spacer></v-spacer>
+                <v-icon @click="remove(element.id)" big>mdi-close</v-icon>
+              </v-layout>
+            </transition-group>
+          </draggable>
+          <!-- generate button -->
+          <v-btn
+            color="primary"
+            @click="onGenerate"
+            :disabled="addons.length < 2"
+          >
+            Concatenate
+          </v-btn>
+        </v-layout>
+      </v-card>
       <v-dialog v-model="dialog" persistent>
         <v-card>
           <v-card-title class="text-h5"> Something went wrong </v-card-title>
@@ -101,6 +114,18 @@ import JSZip from "jszip";
 import draggable from "vuedraggable";
 import { saveAs } from "file-saver";
 
+function getDarkPreference() {
+  let dark = false;
+  if (localStorage.getItem("dark") === "true") {
+    dark = true;
+  } else if (localStorage.getItem("dark") === "false") {
+    dark = false;
+  } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    dark = true;
+  }
+  return dark;
+}
+
 export default {
   name: "App",
 
@@ -108,9 +133,10 @@ export default {
 
   data: () => ({
     panel: [0],
-    error: "bite",
+    error: "",
+    dragover: false,
     dialog: false,
-    dark: false,
+    dark: getDarkPreference(),
     isSelecting: false,
     addons: [],
     files: [],
@@ -161,22 +187,32 @@ export default {
     ],
   }),
   mounted() {
-    // auto select dark mode based on user preference
-    if (localStorage.getItem("dark") === "true") {
-      this.dark = true;
-    } else {
-      // user browser setting
-      if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-        this.dark = true;
-      }
-    }
+    this.$vuetify.theme.dark = this.dark;
   },
   watch: {
     dark() {
       this.$vuetify.theme.dark = this.dark;
+      localStorage.setItem("dark", this.dark);
     },
   },
   methods: {
+    onDrag(e) {
+      // check that a file is being dragged
+      var dt = e.dataTransfer;
+      if (
+        dt.types &&
+        (dt.types.indexOf
+          ? dt.types.indexOf("Files") != -1
+          : dt.types.contains("Files"))
+      ) {
+        this.dragover = true;
+      }
+    },
+    onDrop(e) {
+      this.dragover = false;
+      this.files = [...e.dataTransfer.files];
+      this.onFileChange(this.files);
+    },
     copyError() {
       navigator.clipboard.writeText(this.error);
     },
@@ -297,6 +333,7 @@ export default {
       });
     },
     onGenerate() {
+      let start = performance.now();
       try {
         let zip = new JSZip();
         // create effect.fx, addon.json and lang/en-US.json
@@ -323,6 +360,8 @@ export default {
         this.error = err;
         this.dialog = true;
       }
+      let end = performance.now();
+      console.log("Time to generate: " + (end - start) + "ms");
     },
     processEffect(addon) {
       let id = addon.id;
@@ -742,5 +781,28 @@ body {
   margin-bottom: 0;
   border-bottom-right-radius: 0.25rem;
   border-bottom-left-radius: 0.25rem;
+}
+
+.dragzone {
+  padding: 10px;
+  margin: 10px;
+  margin-top: 58px;
+  height: calc(100% - 68px);
+  width: calc(100% - 20px);
+  border: 2px dashed transparent !important;
+  border-radius: 20px !important;
+  background: transparent;
+  transition: all 5s ease-in-out;
+}
+.dragover {
+  padding: 10px;
+  margin: 10px;
+  margin-top: 58px;
+  height: calc(100% - 68px);
+  width: calc(100% - 20px);
+  /* radius */
+  border-radius: 20px !important;
+  /* dashed border */
+  border: 2px dashed #ccc !important;
 }
 </style>
