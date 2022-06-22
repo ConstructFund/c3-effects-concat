@@ -23,10 +23,5 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v3
-
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
-        run: |
-          npm run build
-          mv dist docs
+      - name: Vue to Github Pages
+        uses: xRealNeon/VuePagesAction@1.0.1
