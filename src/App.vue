@@ -1,5 +1,10 @@
 <template>
   <v-app>
+    <v-app-bar absolute dense flat>
+      <v-toolbar-title>C3 Effects Concatenator</v-toolbar-title>
+      <v-spacer></v-spacer>
+      <v-btn color="primary" @click="onIssue" plain>Report an issue</v-btn>
+    </v-app-bar>
     <v-main>
       <!-- file upload button -->
       <v-layout column wrap style="margin: 10em">
@@ -23,7 +28,7 @@
         </draggable>
         <!-- generate button -->
         <v-btn color="primary" @click="onGenerate" :disabled="!addons.length">
-          Generate
+          Concatenate
         </v-btn>
       </v-layout>
     </v-main>
@@ -89,6 +94,11 @@ export default {
     ],
   }),
   methods: {
+    onIssue() {
+      window.open(
+        "https://github.com/ConstructFund/c3-effects-concat/issues/new"
+      );
+    },
     onFileChange(files) {
       Promise.all(
         files.map((file) => {
