@@ -1,5 +1,4 @@
 module.exports = {
-  transpileDependencies: [
-    'vuetify'
-  ]
-}
+  transpileDependencies: ["vuetify"],
+  publicPath: "/c3-effects-concat/",
+};
