@@ -24,24 +24,76 @@
         @dragleave.prevent="dragover = false"
         :class="`dragzone` + (dragover ? ` dragover` : ``)"
       >
-        <v-layout column wrap style="margin: 10em">
-          <!-- <v-file-input
-          multiple
-          chips
-          v-model="files"
-          label="Add effects"
-          @change="onFileChange"
-          ref="fileInput"
-        ></v-file-input> -->
-          <v-btn
-            style="margin-bottom: 30px"
-            color="primary"
-            outlined
-            :loading="isSelecting"
-            @click="handleFileImport"
+        <v-layout column wrap style="margin: 2em 10em 0em 10em">
+          <v-layout
+            row
+            style="
+              width: 100%;
+              align-items: center;
+              justify-content: center;
+              margin-bottom: 30px;
+            "
           >
-            Add effects
-          </v-btn>
+            <v-card style="height: 286px; flex: 8" class="c3effectslist">
+              <v-card-title> Add a vanilla C3 effect </v-card-title>
+
+              <v-text-field
+                v-model="search"
+                label="Search"
+                single-line
+                dense
+                hide-details
+                style="margin: 0px 0px 0px 10px"
+              ></v-text-field>
+              <v-list
+                style="height: 20vh; bottom: 0; overflow-y: auto"
+                subheader
+                dense
+                class="transparent"
+              >
+                <v-list-item
+                  v-for="element in filteredEffects"
+                  :key="element.json.id"
+                  @click="addC3Effect(element)"
+                >
+                  <v-list-item-content>
+                    <v-list-item-title>{{
+                      element.lang.text.effects[element.json.id.toLowerCase()]
+                        .name
+                    }}</v-list-item-title>
+                  </v-list-item-content>
+                </v-list-item>
+              </v-list>
+            </v-card>
+            <span
+              style="
+                flex: 1.2;
+                text-align: center;
+                display: flex;
+                margin: 20px;
+                flex-direction: column;
+              "
+            >
+              <v-divider></v-divider>
+              OR
+              <v-divider></v-divider>
+            </span>
+            <v-btn
+              style="
+                flex: 5.7;
+                height: 286px;
+                border-radius: 20px;
+                border-top-left-radius: 0;
+                border-bottom-left-radius: 0;
+              "
+              color="primary"
+              outlined
+              :loading="isSelecting"
+              @click="handleFileImport"
+            >
+              Add 3rd party effects
+            </v-btn>
+          </v-layout>
 
           <!-- Create a File Input that will be hidden but triggered with JavaScript -->
           <input
@@ -77,6 +129,8 @@
           >
             Concatenate
           </v-btn>
+
+          <!-- searchable list with all C3Effects -->
         </v-layout>
       </v-card>
       <v-dialog v-model="dialog" persistent>
@@ -105,6 +159,14 @@
           </v-card-actions>
         </v-card>
       </v-dialog>
+      <v-card v-if="animation" class="concatenatedAddon">
+        <v-card-title style="justify-content: center" class="text-h5">
+          Effects concatenated!
+        </v-card-title>
+        <v-card-text style="margin-bottom: 20px; width: 100%" class="text-h5">
+          {{ animationName }}
+        </v-card-text>
+      </v-card>
     </v-main>
   </v-app>
 </template>
@@ -113,6 +175,8 @@
 import JSZip from "jszip";
 import draggable from "vuedraggable";
 import { saveAs } from "file-saver";
+import allEffects from "./assets/allEffects.json";
+import allEffectsLang from "./assets/precompiled-en-US.json";
 
 function getDarkPreference() {
   let dark = false;
@@ -133,9 +197,14 @@ export default {
 
   data: () => ({
     panel: [0],
+    animation: false,
+    animationName: "mes couilles",
+    search: "",
     error: "",
+    C3Effects: [],
     dragover: false,
     dialog: false,
+    loadingC3Effects: true,
     dark: getDarkPreference(),
     isSelecting: false,
     addons: [],
@@ -176,6 +245,7 @@ export default {
       "uniform mediump vec2 destStart;",
       "uniform mediump vec2 destEnd;",
       "uniform highp float seconds;",
+      "uniform mediump float seconds;",
       "uniform mediump vec2 pixelSize;",
       "uniform mediump float pixelWidth;",
       "uniform mediump float pixelHeight;",
@@ -185,9 +255,46 @@ export default {
       "uniform mediump float layerAngle;",
       "uniform mediump float devicePixelRatio;",
     ],
+    commonUniformsToRemove2: [
+      "vTex",
+      "samplerFront",
+      "srcStart",
+      "srcEnd",
+      "srcOriginStart",
+      "srcOriginEnd",
+      "layoutStart",
+      "layoutEnd",
+      "samplerBack",
+      "samplerDepth",
+      "destStart",
+      "destEnd",
+      "seconds",
+      "pixelSize",
+      "layerScale",
+      "layerAngle",
+      "devicePixelRatio",
+    ],
   }),
   mounted() {
     this.$vuetify.theme.dark = this.dark;
+
+    // fetch with no cors
+    let effects = allEffects;
+    let lang = allEffectsLang;
+    effects.all.forEach((effect) => {
+      let id = effect.json.id;
+      effect.lang = {
+        languageTag: lang.languageTag,
+        fileDescription: lang.fileDescription,
+        text: {
+          effects: {
+            [id]: lang.text.effects[id.toLowerCase()],
+          },
+        },
+      };
+    });
+    this.C3Effects = effects.all;
+    this.loadingC3Effects = false;
   },
   watch: {
     dark() {
@@ -195,7 +302,140 @@ export default {
       localStorage.setItem("dark", this.dark);
     },
   },
+  computed: {
+    filteredEffects() {
+      let search = this.search.toLowerCase();
+      return this.C3Effects.filter((effect) => {
+        return (
+          effect.json.id.toLowerCase().includes(search) ||
+          effect.lang.text.effects[effect.json.id.toLowerCase()].name
+            .toLowerCase()
+            .includes(search)
+        );
+      });
+    },
+  },
   methods: {
+    addC3Effect(effect) {
+      let addon = {
+        name: effect.lang.text.effects[effect.json.id.toLowerCase()].name,
+        data: effect.json,
+        id: effect.json.id,
+        fx: effect.glsl,
+        lang: effect.lang,
+      };
+      let index = this.addons.findIndex((element) => element.id === addon.id);
+      if (index !== -1) {
+        this.addons[index] = addon;
+      } else {
+        this.addons.push(addon);
+        this.processEffect(addon);
+      }
+    },
+    processAST(addon) {
+      let id = addon.id;
+      let dataContent = addon.data;
+      let langContent = addon.lang;
+      let fxContent = addon.fx;
+      let processedEffects = this.processedEffects;
+      console.log(fxContent);
+      var TokenString = require("glsl-tokenizer/string");
+      var ParseTokens = require("@sicmutils/glsl-parser/direct");
+      var tokens = TokenString(fxContent);
+      var ast = ParseTokens(tokens);
+      window.deparser = require("@andrewray/glsl-deparser");
+      console.log(ast);
+      window.ast = ast;
+
+      Object.keys(ast.scope)
+        .filter((key) => this.commonUniformsToRemove2.includes(key))
+        .forEach((key) => {
+          console.log("removing", key);
+          // find children of ast that is that variable
+          var child = ast.scope[key];
+          while (child.parent !== ast) {
+            child = child.parent;
+          }
+          // remove the variable
+          ast.children = ast.children.filter((x) => x !== child);
+          // remove the variable from the scope
+          if (key !== "vTex") {
+            delete ast.scope[key];
+          }
+        });
+
+      // rename all remaining variables to avoid conflicts
+      Object.keys(ast.scope).forEach((key) => {
+        if (key === "main" || key === "vTex") return;
+        var child = ast.scope[key];
+        child.data = id + "_" + child.data;
+        let uniformParam = dataContent.parameters.find(
+          (x) => x.uniform === key
+        );
+        if (uniformParam) {
+          let lang =
+            langContent.text.effects[id.toLowerCase()].parameters[
+              uniformParam.id
+            ];
+          // remove that lang from the lang file
+          delete langContent.text.effects[id.toLowerCase()].parameters[
+            uniformParam.id
+          ];
+          if (uniformParam) {
+            uniformParam.id = `${id}_${uniformParam.id}`;
+            uniformParam.uniform = child.data;
+          }
+          // add it back to lang with the correct id
+          langContent.text.effects[id.toLowerCase()].parameters[
+            uniformParam.id
+          ] = lang;
+        } else {
+          console.log(`${id}_${key} not found in data.json`);
+        }
+      });
+
+      let preprocessors = [];
+
+      function findPreprocessorsRecursively(node) {
+        if (
+          node.type === "preprocessor" &&
+          node.token.data.startsWith("#define")
+        ) {
+          preprocessors.push(node);
+        }
+        if (node.children) {
+          node.children.forEach((child) => {
+            findPreprocessorsRecursively(child);
+          });
+        }
+      }
+      findPreprocessorsRecursively(ast);
+      console.log(preprocessors);
+
+      function renamePreprocessorRecursively(node, name, newName) {
+        if (node.type === "ident" && node.data === name) {
+          node.data = newName;
+        }
+        if (node.children) {
+          node.children.forEach((child) => {
+            renamePreprocessorRecursively(child, name, newName);
+          });
+        }
+      }
+
+      preprocessors.forEach((preprocessor) => {
+        let data = preprocessor.token.data;
+        let dataArr = data.split(" ");
+        let name = dataArr[1];
+        dataArr[1] = id + "_" + dataArr[1];
+        let newName = dataArr[1];
+        preprocessor.token.data = dataArr.join(" ");
+        // find all "ident" nodes that are the same name, and rename them to the new name
+        renamePreprocessorRecursively(ast, name, newName);
+      });
+
+      processedEffects[id] = ast;
+    },
     onDrag(e) {
       // check that a file is being dragged
       var dt = e.dataTransfer;
@@ -343,17 +583,14 @@ export default {
         );
         let addonJson = this.concatData(this.addons.map((addon) => addon.id));
         zip.file("addon.json", JSON.stringify(addonJson, null, 2));
-        zip.file(
-          "lang/en-US.json",
-          JSON.stringify(
-            this.concatLang(this.addons.map((addon) => addon.id)),
-            null,
-            2
-          )
-        );
+        let langJson = this.concatLang(this.addons.map((addon) => addon.id));
+        zip.file("lang/en-US.json", JSON.stringify(langJson, null, 2));
         // download zip
         zip.generateAsync({ type: "blob" }).then((blob) => {
           saveAs(blob, addonJson.id + ".c3Addon");
+          this.createCoolAddonAnimationAndClearList(
+            langJson.text.effects[addonJson.id.toLowerCase()].name
+          );
         });
       } catch (err) {
         console.error(err);
@@ -363,206 +600,22 @@ export default {
       let end = performance.now();
       console.log("Time to generate: " + (end - start) + "ms");
     },
+    createCoolAddonAnimationAndClearList(name) {
+      this.animation = true;
+      this.animationName = name;
+      setTimeout(() => {
+        this.animation = false;
+      }, 1600);
+      setTimeout(() => {
+        this.addons = [];
+      }, 200);
+    },
     processEffect(addon) {
-      let id = addon.id;
-      let dataContent = addon.data;
-      let langContent = addon.lang;
-      let fxContent = addon.fx;
-      let processedEffects = this.processedEffects;
-      let commonUniforms = this.commonUniformsToRemove;
-
-      if (id in processedEffects) return;
-
-      processedEffects[id] = {};
-      let fxArr = fxContent.split("\n");
-      // trim lines and remove comments
-      fxArr = fxArr.map((line) => {
-        return line
-          .trim()
-          .replace(/\/\/.*/, "")
-          .trim();
-      });
-      // remove empty lines
-      fxArr = fxArr.filter((line) => {
-        return line.length > 0;
-      });
-
-      // get all lines with precision
-      let precisionLines = fxArr.filter((line) => {
-        return line.startsWith("precision");
-      });
-      // replace all precision for unspecified variables
-      precisionLines.forEach((line) => {
-        let lineA = line.split(" ");
-        let precision = lineA[1];
-        let type = lineA[2].replace(/;/, "");
-        let regex = new RegExp(`(?<!highp |lowp |mediump )${type}`);
-        fxArr = fxArr.map((line) => {
-          return line.replace(regex, `${precision} ${type}`);
-        });
-      });
-      // remove precision lines
-      fxArr = fxArr.filter((line) => {
-        return !line.startsWith("precision");
-      });
-
-      // remove common uniforms
-      fxArr = fxArr.filter((line) => {
-        return !commonUniforms.includes(line);
-      });
-
-      processedEffects[id].uniforms = fxArr.filter((line) => {
-        return line.startsWith("uniform");
-      });
-      // remove uniforms
-      fxArr = fxArr.filter((line) => {
-        return !line.startsWith("uniform");
-      });
-
-      processedEffects[id].uniforms = processedEffects[id].uniforms.map(
-        (line) => {
-          // uniforms look like this "uniform lowp float width;"
-          let lineA = line.split(" ");
-          let name = lineA[lineA.length - 1].replace(";", "");
-          let newName = `${id}_${name}`;
-          line = line.replace(name, newName);
-          // replace all uses of that uniform with the new name in the main code
-          fxArr = fxArr.map((line) => {
-            return line.replaceAll(
-              new RegExp(`(?<!\\w)${name}(?!\\w)`, "g"),
-              newName
-            );
-          });
-
-          let uniformParam = dataContent.parameters.find(
-            (x) => x.uniform === name
-          );
-          if (uniformParam) {
-            let lang =
-              langContent.text.effects[id.toLowerCase()].parameters[
-                uniformParam.id
-              ];
-            // remove that lang from the lang file
-            delete langContent.text.effects[id.toLowerCase()].parameters[
-              uniformParam.id
-            ];
-            if (uniformParam) {
-              uniformParam.id = `${id}_${uniformParam.id}`;
-              uniformParam.uniform = newName;
-            }
-            // add it back to lang with the correct id
-            langContent.text.effects[id.toLowerCase()].parameters[
-              uniformParam.id
-            ] = lang;
-          } else {
-            console.log(`${id}_${name} not found in data.json`);
-          }
-          return line;
-        }
-      );
-
-      processedEffects[id].defines = fxArr.filter((line) => {
-        return line.startsWith("#define");
-      });
-
-      processedEffects[id].defines = processedEffects[id].defines.map(
-        (line) => {
-          // defines look like this "#define width 1.0"
-          let lineA = line.split(" ");
-          let name = lineA[1];
-          let newName = `${id.toUpperCase()}_${name}`;
-          line = line.replace(name, newName);
-          // replace all uses of that define with the new name in the main code
-          fxArr = fxArr.map((line) => {
-            return line.replaceAll(
-              new RegExp(`(?<!\\w)${name}(?!\\w)`, "g"),
-              newName
-            );
-          });
-          return line;
-        }
-      );
-
-      // remove defines
-      fxArr = fxArr.filter((line) => {
-        return !line.startsWith("#define");
-      });
-      processedEffects[id].rawCode = fxArr.join("\n");
-
-      // extract all functions
-      let functions = {};
-      let currentFunction = "";
-      let currentFunctionLines = [];
-      let functionLineRegex =
-        /^(\w+) +(\w+ +)?(\w+) *\(((\w+ +)?(\w+ +)?(\w+ *),? *)*\) *\{? *$/;
-      let nbOpenBrackets = 0;
-      let isInFunction = false;
-      fxArr.forEach((line) => {
-        if (isInFunction) {
-          currentFunctionLines.push(line);
-          if (line.includes("}")) {
-            nbOpenBrackets--;
-            if (nbOpenBrackets === 0) {
-              isInFunction = false;
-              if (currentFunction !== "main") {
-                let newName = `${id}_${currentFunction}`;
-                currentFunctionLines = currentFunctionLines.map((line) => {
-                  return line.replaceAll(currentFunction, newName);
-                });
-                fxArr = fxArr.map((line) => {
-                  return line.replaceAll(currentFunction, newName);
-                });
-                functions[newName] = currentFunctionLines;
-              } else {
-                functions["main"] = currentFunctionLines;
-              }
-              currentFunctionLines = [];
-              currentFunction = "";
-            }
-          }
-          if (line.includes("{")) {
-            nbOpenBrackets++;
-          }
-        }
-        if (!isInFunction) {
-          if (line.match(functionLineRegex)) {
-            isInFunction = true;
-            if (line.match(/\{/g)) nbOpenBrackets++;
-            currentFunction = line.match(functionLineRegex)[3];
-            currentFunctionLines.push(line);
-          }
-        }
-      });
-      // console.log(functions);
-      processedEffects[id].functions = functions;
-
-      // remove all lines that are in functions
-      fxArr = fxArr.filter((line) => {
-        return !Object.keys(functions).some((functionName) => {
-          return functions[functionName].some((functionLine) => {
-            return line === functionLine;
-          });
-        });
-      });
-
-      // trim lines
-      fxArr = fxArr.map((line) => {
-        return line.trim();
-      });
-      // remove empty lines
-      fxArr = fxArr.filter((line) => {
-        return line.length > 0;
-      });
-      // console.log(fxArr);
-      // if fxArr is not empty, it means that there is some code left, warn the user
-      if (fxArr.length > 0) {
-        console.log(`Warning: ${id} has some code left`);
-      }
+      this.processAST(addon);
     },
 
     concatEffects(list) {
       let resultArr = [];
-      let processedEffects = this.processedEffects;
       let commonUniforms = this.commonUniforms;
       // append common uniforms
       resultArr = resultArr.concat(commonUniforms);
@@ -570,69 +623,36 @@ export default {
       resultArr.push("");
 
       // append uniforms for all effects
-      list.forEach((id) => {
-        let effect = processedEffects[id];
-        resultArr = resultArr.concat(effect.uniforms);
-        resultArr.push("");
-      });
-
-      // append defines for all effects
-      list.forEach((id) => {
-        let effect = processedEffects[id];
-        resultArr = resultArr.concat(effect.defines);
-        resultArr.push("");
-      });
-
-      // append functions for all effects
-      list.forEach((id) => {
-        let effect = processedEffects[id];
-        Object.keys(effect.functions).forEach((functionName) => {
-          if (functionName === "main") {
-            return;
-          }
-          resultArr = resultArr.concat(effect.functions[functionName]);
-          resultArr.push("");
-        });
-      });
-
-      // append main function
-      let isLastEffect = false;
+      let deparser = require("@andrewray/glsl-deparser");
       let prevEffectFunction = "";
+
       list.forEach((id, index) => {
-        let effect = processedEffects[id];
-        if (index === list.length - 1) {
-          isLastEffect = true;
+        let effect = this.processedEffects[id];
+        let isNotLastMain = index < list.length - 1;
+        if (isNotLastMain) {
+          effect.scope.vTex.data = id + "_vTex";
         }
-        let newMain = effect.functions.main;
+        let fxSrc = deparser(effect);
         if (prevEffectFunction !== "") {
           // replace "texture2D(samplerFront" with a call to the previous function
-          newMain = newMain.map((line) => {
-            return line.replaceAll(
-              "texture2D(samplerFront,",
-              `${prevEffectFunction}(`
-            );
-          });
+          fxSrc = fxSrc.replaceAll(
+            /texture2D *\( *samplerFront *, */g,
+            `${prevEffectFunction}(`
+          );
         }
-        if (!isLastEffect) {
+        if (isNotLastMain) {
+          resultArr.push(`mediump vec2 ${id}_vTex;`);
           // replace main function name with a new name
-          let replaced = false;
           prevEffectFunction = `${id}_main`;
-          newMain = newMain.map((line) => {
-            if (line.includes("main") && !replaced) {
-              return line.replaceAll(
-                /void main\([^)]*\)/g,
-                `mediump vec4 ${prevEffectFunction}(mediump vec2 vTex)`
-              );
-            }
-            return line;
-          });
-          // replace gl_FragColor ?= ? with return
-          newMain = newMain.map((line) => {
-            return line.replaceAll(/gl_FragColor *= */g, `return `);
-          });
+          fxSrc = fxSrc
+            .replace(
+              /void main\([^)]*\)\s*\{/g,
+              `mediump vec4 ${prevEffectFunction}(mediump vec2 vTex) {
+  ${id}_vTex = vTex;`
+            )
+            .replaceAll(/gl_FragColor *= */g, `return `);
         }
-        resultArr = resultArr.concat(newMain);
-        resultArr.push("");
+        resultArr.push(fxSrc);
       });
       return resultArr.join("\n");
     },
@@ -736,7 +756,7 @@ body {
   width: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden !important;
+  overflow: auto !important;
 }
 
 .list-group {
@@ -804,5 +824,80 @@ body {
   border-radius: 20px !important;
   /* dashed border */
   border: 2px dashed #ccc !important;
+}
+.c3effectslist {
+  /* radius */
+  border-radius: 20px !important;
+  /* dashed border */
+  border: 1px solid #ccc !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+/* width */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+  background: #888;
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+.concatenatedAddon {
+  width: 80%;
+  height: 30%;
+  max-width: 500px;
+  max-height: 500px;
+  /* center on screen */
+  position: absolute !important;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(150, 150, 150, 0.5) !important;
+  border-radius: 0.25rem !important;
+  /* play animation */
+  animation: scaleDownAndFadeIn 1.7s ease;
+  /* align text vertically */
+  text-align: center;
+  vertical-align: middle;
+  place-content: center;
+  display: flex !important;
+  flex-direction: column;
+}
+
+@keyframes scaleDownAndFadeIn {
+  0% {
+    transform: scale(1.3) translate(-40%, -40%);
+    opacity: 0;
+  }
+  17% {
+    transform: scale(0.9) translate(-55%, -55%);
+    opacity: 1;
+  }
+  25% {
+    transform: scale(1) translate(-50%, -50%);
+    opacity: 1;
+  }
+  60% {
+    transform: scale(1) translate(-50%, -50%);
+    opacity: 1;
+  }
+  90% {
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-50%, -50%) translateY(100px) scale(1);
+    opacity: 0;
+  }
 }
 </style>
