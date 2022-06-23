@@ -24,13 +24,14 @@
         @dragleave.prevent="dragover = false"
         :class="`dragzone` + (dragover ? ` dragover` : ``)"
       >
-        <v-layout column wrap style="margin: 2em 10em 0em 10em">
+        <v-layout column wrap>
           <v-layout
             row
             style="
               width: 100%;
               align-items: center;
               justify-content: center;
+              margin: 0 !important;
               margin-bottom: 30px;
             "
           >
@@ -132,98 +133,7 @@
           <details>
             <summary>Addon properties</summary>
 
-            <v-layout
-              row
-              wrap
-              style="
-                margin: 0px 10px;
-                align-items: center;
-                justify-content: flex-start;
-              "
-            >
-              <v-switch
-                label="Force category"
-                v-model="forceCategory"
-                hide-details
-                style="margin-top: 8px !important; margin-bottom: 8px"
-              ></v-switch>
-              <v-select
-                v-model="customCategory"
-                :items="categories"
-                label="Category"
-                outlined
-                :disabled="!forceCategory"
-                dense
-                hide-details
-                style="margin: 0px 15px 0px 10px"
-              ></v-select>
-            </v-layout>
-            <v-layout
-              row
-              wrap
-              style="
-                margin: 0px 10px;
-                align-items: center;
-                justify-content: flex-start;
-              "
-            >
-              <v-switch
-                v-model="removeDuplicates"
-                label="Remove duplicate authors"
-                hide-details
-                style="margin-top: 8px !important; margin-bottom: 8px"
-              ></v-switch>
-            </v-layout>
-            <v-layout
-              row
-              wrap
-              style="
-                margin: 0px 10px;
-                align-items: center;
-                justify-content: flex-start;
-              "
-            >
-              <v-switch
-                label="Force name"
-                v-model="forceName"
-                hide-details
-                style="margin-top: 8px !important; margin-bottom: 8px"
-              ></v-switch>
-              <v-text-field
-                v-model="customName"
-                :disabled="!forceName"
-                label="Name"
-                dense
-                hide-details
-                style="margin: 0px 10px"
-              ></v-text-field>
-            </v-layout>
-            <v-layout
-              row
-              wrap
-              style="
-                margin: 0px 10px;
-                align-items: center;
-                justify-content: flex-start;
-              "
-            >
-              <v-switch
-                label="Force Description"
-                v-model="forceDescription"
-                hide-details
-                style="margin-top: 8px !important; margin-bottom: 8px"
-              ></v-switch>
-              <v-text-field
-                v-model="customDescription"
-                :disabled="!forceDescription"
-                label="Description"
-                dense
-                hide-details
-                style="margin: 0px 10px"
-              ></v-text-field>
-            </v-layout>
-            <details>
-              <summary>Advanced</summary>
+            <div class="content">
               <v-layout
                 row
                 wrap
@@ -234,21 +144,117 @@
                 "
               >
                 <v-switch
-                  label="Force ID"
-                  v-model="forceId"
+                  label="Force category"
+                  v-model="forceCategory"
+                  hide-details
+                  style="margin-top: 8px !important; margin-bottom: 8px"
+                ></v-switch>
+                <v-select
+                  v-model="customCategory"
+                  :items="categories"
+                  label="Category"
+                  outlined
+                  :disabled="!forceCategory"
+                  dense
+                  hide-details
+                  style="margin: 0px 15px 0px 10px"
+                ></v-select>
+              </v-layout>
+              <v-layout
+                row
+                wrap
+                style="
+                  margin: 0px 10px;
+                  align-items: center;
+                  justify-content: flex-start;
+                "
+              >
+                <v-switch
+                  v-model="removeDuplicates"
+                  label="Remove duplicate authors"
+                  hide-details
+                  style="margin-top: 8px !important; margin-bottom: 8px"
+                ></v-switch>
+              </v-layout>
+              <v-layout
+                row
+                wrap
+                style="
+                  margin: 0px 10px;
+                  align-items: center;
+                  justify-content: flex-start;
+                "
+              >
+                <v-switch
+                  label="Force name"
+                  v-model="forceName"
                   hide-details
                   style="margin-top: 8px !important; margin-bottom: 8px"
                 ></v-switch>
                 <v-text-field
-                  v-model="customId"
-                  :disabled="!forceId"
-                  label="ID"
+                  v-model="customName"
+                  :disabled="!forceName"
+                  label="Name"
                   dense
                   hide-details
                   style="margin: 0px 10px"
                 ></v-text-field>
               </v-layout>
-            </details>
+              <v-layout
+                row
+                wrap
+                style="
+                  margin: 0px 10px;
+                  align-items: center;
+                  justify-content: flex-start;
+                "
+              >
+                <v-switch
+                  label="Force Description"
+                  v-model="forceDescription"
+                  hide-details
+                  style="margin-top: 8px !important; margin-bottom: 8px"
+                ></v-switch>
+                <v-text-field
+                  v-model="customDescription"
+                  :disabled="!forceDescription"
+                  label="Description"
+                  dense
+                  hide-details
+                  style="margin: 0px 10px"
+                ></v-text-field>
+              </v-layout>
+              <details>
+                <summary>Advanced</summary>
+
+                <div class="content">
+                  <v-layout
+                    row
+                    wrap
+                    style="
+                      margin: 0px 10px;
+                      align-items: center;
+                      justify-content: flex-start;
+                    "
+                  >
+                    <v-switch
+                      label="Force ID"
+                      v-model="forceId"
+                      hide-details
+                      style="margin-top: 8px !important; margin-bottom: 8px"
+                    ></v-switch>
+                    <v-text-field
+                      v-model="customId"
+                      :disabled="!forceId"
+                      label="ID"
+                      dense
+                      hide-details
+                      style="margin: 0px 10px"
+                    ></v-text-field>
+                  </v-layout>
+                </div>
+              </details>
+            </div>
           </details>
           <!-- generate button -->
           <v-btn
@@ -307,6 +313,7 @@ import draggable from "vuedraggable";
 import { saveAs } from "file-saver";
 import allEffects from "./assets/allEffects.json";
 import allEffectsLang from "./assets/precompiled-en-US.json";
+import Accordion from "./Accordion.js";
 
 function getDarkPreference() {
   let dark = false;
@@ -435,6 +442,10 @@ export default {
     });
     this.C3Effects = effects.all;
     this.loadingC3Effects = false;
+
+    document.querySelectorAll("details").forEach((el) => {
+      new Accordion(el);
+    });
   },
   watch: {
     dark() {
@@ -953,7 +964,6 @@ body {
 }
 .list-group-item {
   position: relative;
-  display: block;
   padding: 0.75rem 1.25rem;
   margin-bottom: -1px;
   border: 1px solid rgba(150, 150, 150, 0.5);
@@ -1072,9 +1082,37 @@ details {
   /* border and a paddingLeft */
   border: 1px solid rgba(150, 150, 150, 0.5) !important;
   border-radius: 0.25rem !important;
+}
+.content {
   padding-left: 0.5rem;
   padding-right: 0.5rem;
   padding-top: 0.5rem;
   padding-bottom: 0.5rem;
+}
+summary {
+  padding: 1rem;
+  display: block;
+  position: relative;
+}
+details summary::-webkit-details-marker {
+  color: transparent;
+}
+details summary::marker {
+  color: transparent;
+}
+details.detailsOpen > summary:before {
+  transform: rotate(90deg);
+}
+summary:before {
+  content: "";
+  border-width: 0.4rem;
+  border-style: solid;
+  border-color: transparent transparent transparent #fff;
+  position: absolute;
+  top: 1.3rem;
+  left: 1rem;
+  transform: rotate(0);
+  transform-origin: 0.2rem 50%;
+  transition: 0.25s transform ease;
 }
 </style>
