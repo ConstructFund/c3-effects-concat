@@ -115,8 +115,8 @@
                 <v-icon style="margin-right: 10px"
                   >mdi-drag-horizontal-variant</v-icon
                 >
-                <span>{{ element.name }}</span>
-                <div style="flex: 200"></div>
+                <div style="width: calc(100% - 48px)">{{ element.name }}</div>
+
                 <v-icon
                   style="align-self: flex-end"
                   @click="remove(element.id)"
