@@ -46,7 +46,7 @@
                 style="margin: 0px 0px 0px 10px"
               ></v-text-field>
               <v-list
-                style="height: 20vh; bottom: 0; overflow-y: auto"
+                style="height: 195px; bottom: 0; overflow-y: auto"
                 subheader
                 dense
                 class="transparent"
