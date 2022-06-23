@@ -2,7 +2,6 @@ export default class Accordion {
   constructor(el) {
     // Store the <details> element
     this.el = el;
-    console.log(this.el);
     // Store the <summary> element
     this.summary = el.querySelector("summary");
     // Store the <div class="content"> element

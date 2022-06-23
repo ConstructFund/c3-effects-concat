@@ -110,17 +110,31 @@
                 row
                 style="flex-wrap: nowrap"
                 v-for="element in addons"
-                :key="element.id"
+                :key="`${element.data.id}${element.number}`"
                 class="list-group-item"
               >
-                <v-icon style="margin-right: 10px"
-                  >mdi-drag-horizontal-variant</v-icon
-                >
+                <v-icon style="margin-right: 10px">
+                  mdi-drag-horizontal-variant
+                </v-icon>
+                <v-tooltip v-if="element.nbTextureReads > 5" color="red" bottom>
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-icon
+                      color="red"
+                      v-bind="attrs"
+                      v-on="on"
+                      style="margin-right: 10px"
+                    >
+                      mdi-alert
+                    </v-icon>
+                  </template>
+                  This effect might cause performance issues when concatenated
+                </v-tooltip>
+
                 <div style="width: calc(100% - 48px)">{{ element.name }}</div>
 
                 <v-icon
                   style="align-self: flex-end"
-                  @click="remove(element.id)"
+                  @click="remove(element)"
                   big
                   >mdi-close</v-icon
                 >
@@ -315,6 +329,10 @@ import allEffects from "./assets/allEffects.json";
 import allEffectsLang from "./assets/precompiled-en-US.json";
 import Accordion from "./Accordion.js";
 
+var TokenString = require("glsl-tokenizer/string");
+var ParseTokens = require("@sicmutils/glsl-parser/direct");
+let deparser = require("@andrewray/glsl-deparser");
+
 function getDarkPreference() {
   let dark = false;
   if (localStorage.getItem("dark") === "true") {
@@ -473,14 +491,29 @@ export default {
     addC3Effect(effect) {
       let addon = {
         name: effect.lang.text.effects[effect.json.id.toLowerCase()].name,
-        data: effect.json,
+        data: JSON.parse(JSON.stringify(effect.json)),
         id: effect.json.id,
         fx: effect.glsl,
-        lang: effect.lang,
+        lang: JSON.parse(JSON.stringify(effect.lang)),
+        number: 0,
       };
+
+      // find number of matches in fx of texture2D
+      let texture2DRegex = /texture2D *\( *samplerFront *, */g;
+      let matches = addon.fx.match(texture2DRegex);
+      if (matches) {
+        addon.nbTextureReads = matches.length;
+      } else {
+        addon.nbTextureReads = 0;
+      }
+
       let index = this.addons.findIndex((element) => element.id === addon.id);
       if (index !== -1) {
-        this.addons[index] = addon;
+        addon.number = this.addons.filter(
+          (element) => element.id === addon.id
+        ).length;
+        this.addons.push(addon);
+        this.processEffect(addon);
       } else {
         this.addons.push(addon);
         this.processEffect(addon);
@@ -488,6 +521,9 @@ export default {
     },
     processAST(addon) {
       let id = addon.id;
+      let processedEffects = this.processedEffects;
+      processedEffects[id] = processedEffects[id] || [];
+      let number = processedEffects[id].length;
       let dataContent = addon.data;
       let langContent = addon.lang;
       let fxContent = addon.fx;
@@ -506,13 +542,9 @@ export default {
         fxContent = fxContent.replaceAll(name, "mediump");
       }
 
-      let processedEffects = this.processedEffects;
       console.log(fxContent);
-      var TokenString = require("glsl-tokenizer/string");
-      var ParseTokens = require("@sicmutils/glsl-parser/direct");
       var tokens = TokenString(fxContent);
       var ast = ParseTokens(tokens);
-      window.deparser = require("@andrewray/glsl-deparser");
       console.log(ast);
       window.ast = ast;
 
@@ -537,7 +569,7 @@ export default {
       Object.keys(ast.scope).forEach((key) => {
         if (key === "main" || key === "vTex") return;
         var child = ast.scope[key];
-        child.data = id + "_" + child.data;
+        child.data = id + number.toString() + "_" + child.data;
         let uniformParam = dataContent.parameters.find(
           (x) => x.uniform === key
         );
@@ -551,7 +583,7 @@ export default {
             uniformParam.id
           ];
           if (uniformParam) {
-            uniformParam.id = `${id}_${uniformParam.id}`;
+            uniformParam.id = `${id}${number.toString()}_${uniformParam.id}`;
             uniformParam.uniform = child.data;
           }
           // add it back to lang with the correct id
@@ -559,7 +591,9 @@ export default {
             uniformParam.id
           ] = lang;
         } else {
-          console.log(`${id}_${key} not found in data.json`);
+          console.log(
+            `${id}${number.toString()}_${key} not found in data.json`
+          );
         }
       });
 
@@ -596,14 +630,14 @@ export default {
         let data = preprocessor.token.data;
         let dataArr = data.split(" ");
         let name = dataArr[1];
-        dataArr[1] = id + "_" + dataArr[1];
+        dataArr[1] = id + number.toString() + "_" + dataArr[1];
         let newName = dataArr[1];
         preprocessor.token.data = dataArr.join(" ");
         // find all "ident" nodes that are the same name, and rename them to the new name
         renamePreprocessorRecursively(ast, name, newName);
       });
 
-      processedEffects[id] = ast;
+      processedEffects[id].push(ast);
     },
     onDrag(e) {
       // check that a file is being dragged
@@ -645,8 +679,8 @@ export default {
       this.onFileChange(this.files);
       // Do whatever you need with the file, liek reading it with FileReader
     },
-    remove(id) {
-      this.addons = this.addons.filter((addon) => addon.id !== id);
+    remove(element) {
+      this.addons = this.addons.filter((addon) => addon !== element);
     },
     onIssue() {
       window.open(
@@ -664,6 +698,7 @@ export default {
             id: "",
             fx: null,
             lang: null,
+            number: 0,
           };
           let found = 0;
           return zip
@@ -716,14 +751,27 @@ export default {
 
               if (found === 3) {
                 await Promise.all(promises);
+                // find number of matches in fx of texture2D
+                let texture2DRegex = /texture2D *\( *samplerFront *, */g;
+                let matches = addon.fx.match(texture2DRegex);
+                if (matches) {
+                  addon.nbTextureReads = matches.length;
+                } else {
+                  addon.nbTextureReads = 0;
+                }
                 // if addons already contains addon, replace it
                 let index = this.addons.findIndex(
                   (element) => element.id === addon.id
                 );
                 if (index !== -1) {
-                  this.addons[index] = addon;
+                  addon.number = this.addons.filter(
+                    (element) => element.id === addon.id
+                  ).length;
+                  this.addons.push(addon);
+                  this.processEffect(addon);
                 } else {
                   this.addons.push(addon);
+                  this.processEffect(addon);
                 }
               } else {
                 this.error += "Invalid effect addon file: " + file.name + "\n";
@@ -777,6 +825,7 @@ export default {
       }, 1600);
       setTimeout(() => {
         this.addons = [];
+        this.processedEffects = {};
       }, 200);
     },
     processEffect(addon) {
@@ -791,15 +840,21 @@ export default {
 
       resultArr.push("");
       // append uniforms for all effects
-      let deparser = require("@andrewray/glsl-deparser");
       let prevEffectFunction = "";
       let texture2DRegex = /texture2D *\( *samplerFront *, */g;
-
+      let numberPerId = {};
       list.forEach((id, index) => {
-        let effect = this.processedEffects[id];
+        // check if id exists in numberPerId
+        if (numberPerId[id] === undefined) {
+          numberPerId[id] = 0;
+        } else {
+          numberPerId[id]++;
+        }
+        let number = numberPerId[id];
+        let effect = this.processedEffects[id][number];
         let isNotLastMain = index < list.length - 1;
         if (isNotLastMain) {
-          effect.scope.vTex.data = id + "_vTex";
+          effect.scope.vTex.data = id + number.toString() + "_vTex";
         }
 
         let fxSrc = deparser(effect);
@@ -808,14 +863,14 @@ export default {
           fxSrc = fxSrc.replaceAll(texture2DRegex, `${prevEffectFunction}(`);
         }
         if (isNotLastMain) {
-          resultArr.push(`mediump vec2 ${id}_vTex;`);
+          resultArr.push(`mediump vec2 ${id}${number.toString()}_vTex;`);
           // replace main function name with a new name
-          prevEffectFunction = `${id}_main`;
+          prevEffectFunction = `${id}${number.toString()}_main`;
           fxSrc = fxSrc
             .replace(
               /void main\([^)]*\)\s*\{/g,
               `mediump vec4 ${prevEffectFunction}(mediump vec2 vTex) {
-  ${id}_vTex = vTex;`
+  ${id}${number.toString()}_vTex = vTex;`
             )
             .replaceAll(/gl_FragColor *= */g, `return `);
         }
@@ -833,7 +888,19 @@ export default {
         documentation: "https://www.construct.net",
         "file-list": ["lang/en-US.json", "addon.json", "effect.fx"],
       };
-      let addons = list.map((id) => this.addons.find((x) => x.id === id));
+
+      let numberPerId = {};
+
+      let addons = list.map((id) => {
+        if (numberPerId[id] === undefined) {
+          numberPerId[id] = 0;
+        } else {
+          numberPerId[id]++;
+        }
+        return this.addons.find((x) => {
+          return x.id === id && x.number === numberPerId[id];
+        });
+      });
       if (this.forceName) {
         resultData.name = this.customName;
       } else {
@@ -915,7 +982,19 @@ export default {
           effects: {},
         },
       };
-      let addons = list.map((id) => this.addons.find((x) => x.id === id));
+
+      let numberPerId = {};
+
+      let addons = list.map((id) => {
+        if (numberPerId[id] === undefined) {
+          numberPerId[id] = 0;
+        } else {
+          numberPerId[id]++;
+        }
+        return this.addons.find((x) => {
+          return x.id === id && x.number === numberPerId[id];
+        });
+      });
 
       let id = addons.map((addon) => addon.id).join("_");
       if (this.forceId) {
