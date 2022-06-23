@@ -441,6 +441,9 @@ export default {
       };
     });
     this.C3Effects = effects.all;
+    // this.C3Effects.forEach((effect) => {
+    //   this.addC3Effect(effect);
+    // });
     this.loadingC3Effects = false;
 
     document.querySelectorAll("details").forEach((el) => {
@@ -836,15 +839,23 @@ export default {
       } else {
         resultData.name = addons.map((addon) => addon.name).join(" + ");
       }
-      resultData.id = addons.map((addon) => addon.id).join("_");
+      if (this.forceId) {
+        resultData.id = this.customId;
+      } else {
+        resultData.id = addons.map((addon) => addon.id).join("_");
+      }
       if (this.removeDuplicates) {
         let set = new Set([...addons.map((addon) => addon.data.author)]);
         resultData.author = Array.from(set).join(", ");
       } else {
         resultData.author = addons.map((addon) => addon.data.author).join(", ");
       }
-      resultData.description =
-        "Concat effect of " + addons.map((addon) => addon.name).join(", ");
+      if (this.forceDescription) {
+        resultData.description = this.customDescription;
+      } else {
+        resultData.description =
+          "Concat effect of " + addons.map((addon) => addon.name).join(", ");
+      }
 
       if (this.forceCategory) {
         resultData.category = this.customCategory;
@@ -905,13 +916,22 @@ export default {
         },
       };
       let addons = list.map((id) => this.addons.find((x) => x.id === id));
+
       let id = addons.map((addon) => addon.id).join("_");
+      if (this.forceId) {
+        id = this.customId;
+      }
       resultData.text.effects[id.toLowerCase()] = {
-        name: addons
-          .map((addon) => addon.lang.text.effects[addon.id.toLowerCase()].name)
-          .join(" + "),
-        description:
-          "Concat effect of " + addons.map((addon) => addon.name).join(", "),
+        name: this.forceName
+          ? this.customName
+          : addons
+              .map(
+                (addon) => addon.lang.text.effects[addon.id.toLowerCase()].name
+              )
+              .join(" + "),
+        description: this.forceDescription
+          ? this.customDescription
+          : "Concat effect of " + addons.map((addon) => addon.name).join(", "),
       };
       let params = {};
       addons.forEach((addon) => {
