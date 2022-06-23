@@ -116,8 +116,13 @@
                   >mdi-drag-horizontal-variant</v-icon
                 >
                 <span>{{ element.name }}</span>
-                <v-spacer></v-spacer>
-                <v-icon @click="remove(element.id)" big>mdi-close</v-icon>
+                <div style="flex: 200"></div>
+                <v-icon
+                  style="align-self: flex-end"
+                  @click="remove(element.id)"
+                  big
+                  >mdi-close</v-icon
+                >
               </v-layout>
             </transition-group>
           </draggable>
@@ -812,7 +817,7 @@ body {
   border: 2px dashed transparent !important;
   border-radius: 20px !important;
   background: transparent;
-  transition: all 5s ease-in-out;
+  transition: all 0.5s ease-in-out;
 }
 .dragover {
   padding: 10px;
