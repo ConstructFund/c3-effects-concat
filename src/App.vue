@@ -83,7 +83,7 @@
               style="
                 flex: 5.7;
                 height: 286px;
-                border-radius: 20px;
+                border-radius: 12px;
                 border-top-left-radius: 0;
                 border-bottom-left-radius: 0;
               "
@@ -1004,7 +1004,7 @@ body {
 }
 .c3effectslist {
   /* radius */
-  border-radius: 20px !important;
+  border-radius: 12px !important;
   /* dashed border */
   border: 1px solid #ccc !important;
   border-top-right-radius: 0 !important;
@@ -1091,6 +1091,7 @@ details {
 }
 summary {
   padding: 1rem;
+  padding-left: 2.2rem;
   display: block;
   position: relative;
 }
