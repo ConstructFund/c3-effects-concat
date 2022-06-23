@@ -126,11 +126,136 @@
               </v-layout>
             </transition-group>
           </draggable>
+
+          <!-- dropdown for category, a checkbox to remove duplicate authors, and a text field for custom name -->
+
+          <details>
+            <summary>Addon properties</summary>
+
+            <v-layout
+              row
+              wrap
+              style="
+                margin: 0px 10px;
+                align-items: center;
+                justify-content: flex-start;
+              "
+            >
+              <v-switch
+                label="Force category"
+                v-model="forceCategory"
+                hide-details
+                style="margin-top: 8px !important; margin-bottom: 8px"
+              ></v-switch>
+              <v-select
+                v-model="customCategory"
+                :items="categories"
+                label="Category"
+                outlined
+                :disabled="!forceCategory"
+                dense
+                hide-details
+                style="margin: 0px 15px 0px 10px"
+              ></v-select>
+            </v-layout>
+            <v-layout
+              row
+              wrap
+              style="
+                margin: 0px 10px;
+                align-items: center;
+                justify-content: flex-start;
+              "
+            >
+              <v-switch
+                v-model="removeDuplicates"
+                label="Remove duplicate authors"
+                hide-details
+                style="margin-top: 8px !important; margin-bottom: 8px"
+              ></v-switch>
+            </v-layout>
+            <v-layout
+              row
+              wrap
+              style="
+                margin: 0px 10px;
+                align-items: center;
+                justify-content: flex-start;
+              "
+            >
+              <v-switch
+                label="Force name"
+                v-model="forceName"
+                hide-details
+                style="margin-top: 8px !important; margin-bottom: 8px"
+              ></v-switch>
+              <v-text-field
+                v-model="customName"
+                :disabled="!forceName"
+                label="Name"
+                dense
+                hide-details
+                style="margin: 0px 10px"
+              ></v-text-field>
+            </v-layout>
+            <v-layout
+              row
+              wrap
+              style="
+                margin: 0px 10px;
+                align-items: center;
+                justify-content: flex-start;
+              "
+            >
+              <v-switch
+                label="Force Description"
+                v-model="forceDescription"
+                hide-details
+                style="margin-top: 8px !important; margin-bottom: 8px"
+              ></v-switch>
+              <v-text-field
+                v-model="customDescription"
+                :disabled="!forceDescription"
+                label="Description"
+                dense
+                hide-details
+                style="margin: 0px 10px"
+              ></v-text-field>
+            </v-layout>
+            <details>
+              <summary>Advanced</summary>
+              <v-layout
+                row
+                wrap
+                style="
+                  margin: 0px 10px;
+                  align-items: center;
+                  justify-content: flex-start;
+                "
+              >
+                <v-switch
+                  label="Force ID"
+                  v-model="forceId"
+                  hide-details
+                  style="margin-top: 8px !important; margin-bottom: 8px"
+                ></v-switch>
+                <v-text-field
+                  v-model="customId"
+                  :disabled="!forceId"
+                  label="ID"
+                  dense
+                  hide-details
+                  style="margin: 0px 10px"
+                ></v-text-field>
+              </v-layout>
+            </details>
+          </details>
           <!-- generate button -->
           <v-btn
             color="primary"
             @click="onGenerate"
             :disabled="addons.length < 2"
+            style="margin-top: 20px"
           >
             Concatenate
           </v-btn>
@@ -215,6 +340,16 @@ export default {
     addons: [],
     files: [],
     processedEffects: {},
+    categories: ["blend", "color", "distortion", "normal-mapping", "other"],
+    forceName: false,
+    forceCategory: false,
+    customName: "",
+    customCategory: "other",
+    removeDuplicates: true,
+    customId: "",
+    forceId: false,
+    customDescription: "",
+    forceDescription: false,
     commonUniforms: [
       "varying mediump vec2 vTex;",
       "uniform lowp sampler2D samplerFront;",
@@ -342,6 +477,21 @@ export default {
       let dataContent = addon.data;
       let langContent = addon.lang;
       let fxContent = addon.fx;
+
+      console.log("Processing AST for " + id);
+      //HACK to fix bug with macros being used instead of precision keywords
+      let precisionMacroRegex =
+        /#ifdef GL_FRAGMENT_PRECISION_HIGH[^#]*#define (\w+) \w+(?:[^#]*#)*endif/g;
+
+      // remove precision macros
+      let match;
+      while ((match = precisionMacroRegex.exec(fxContent)) !== null) {
+        console.log("matched ", match);
+        let name = match[1];
+        fxContent = fxContent.replace(match[0], "");
+        fxContent = fxContent.replaceAll(name, "mediump");
+      }
+
       let processedEffects = this.processedEffects;
       console.log(fxContent);
       var TokenString = require("glsl-tokenizer/string");
@@ -626,10 +776,10 @@ export default {
       resultArr = resultArr.concat(commonUniforms);
 
       resultArr.push("");
-
       // append uniforms for all effects
       let deparser = require("@andrewray/glsl-deparser");
       let prevEffectFunction = "";
+      let texture2DRegex = /texture2D *\( *samplerFront *, */g;
 
       list.forEach((id, index) => {
         let effect = this.processedEffects[id];
@@ -637,13 +787,11 @@ export default {
         if (isNotLastMain) {
           effect.scope.vTex.data = id + "_vTex";
         }
+
         let fxSrc = deparser(effect);
         if (prevEffectFunction !== "") {
           // replace "texture2D(samplerFront" with a call to the previous function
-          fxSrc = fxSrc.replaceAll(
-            /texture2D *\( *samplerFront *, */g,
-            `${prevEffectFunction}(`
-          );
+          fxSrc = fxSrc.replaceAll(texture2DRegex, `${prevEffectFunction}(`);
         }
         if (isNotLastMain) {
           resultArr.push(`mediump vec2 ${id}_vTex;`);
@@ -672,21 +820,35 @@ export default {
         "file-list": ["lang/en-US.json", "addon.json", "effect.fx"],
       };
       let addons = list.map((id) => this.addons.find((x) => x.id === id));
-      resultData.name = addons.map((addon) => addon.name).join(" + ");
+      if (this.forceName) {
+        resultData.name = this.customName;
+      } else {
+        resultData.name = addons.map((addon) => addon.name).join(" + ");
+      }
       resultData.id = addons.map((addon) => addon.id).join("_");
-      resultData.author = addons.map((addon) => addon.data.author).join(", ");
+      if (this.removeDuplicates) {
+        let set = new Set([...addons.map((addon) => addon.data.author)]);
+        resultData.author = Array.from(set).join(", ");
+      } else {
+        resultData.author = addons.map((addon) => addon.data.author).join(", ");
+      }
       resultData.description =
         "Concat effect of " + addons.map((addon) => addon.name).join(", ");
-      // if all categories are the same, use that one, else "other"
-      resultData.category = addons
-        .map((addon) => addon.data.category)
-        .reduce((acc, curr) => {
-          if (acc === curr) {
-            return acc;
-          } else {
-            return "other";
-          }
-        }, addons[0].data.category);
+
+      if (this.forceCategory) {
+        resultData.category = this.customCategory;
+      } else {
+        // if all categories are the same, use that one, else "other"
+        resultData.category = addons
+          .map((addon) => addon.data.category)
+          .reduce((acc, curr) => {
+            if (acc === curr) {
+              return acc;
+            } else {
+              return "other";
+            }
+          }, addons[0].data.category);
+      }
       // or all the results
       resultData["blends-background"] = addons
         .map((addon) => addon.data["blends-background"])
@@ -817,7 +979,7 @@ body {
   border: 2px dashed transparent !important;
   border-radius: 20px !important;
   background: transparent;
-  transition: all 0.5s ease-in-out;
+  transition: all 1s ease-in-out;
 }
 .dragover {
   padding: 10px;
@@ -904,5 +1066,15 @@ body {
     transform: translate(-50%, -50%) translateY(100px) scale(1);
     opacity: 0;
   }
+}
+
+details {
+  /* border and a paddingLeft */
+  border: 1px solid rgba(150, 150, 150, 0.5) !important;
+  border-radius: 0.25rem !important;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
 }
 </style>
