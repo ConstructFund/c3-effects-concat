@@ -1089,6 +1089,15 @@ body {
   overflow: auto !important;
 }
 
+html {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
 .list-group {
   min-height: 20px;
 }
