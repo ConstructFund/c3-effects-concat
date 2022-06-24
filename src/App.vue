@@ -1117,7 +1117,7 @@ body {
   border: 2px dashed transparent !important;
   border-radius: 20px !important;
   background: transparent;
-  transition: all 1s ease-in-out;
+  transition: border 1s ease-in-out;
 }
 .dragover {
   padding: 10px;
