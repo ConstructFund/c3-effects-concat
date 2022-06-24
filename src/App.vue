@@ -1246,7 +1246,6 @@ summary {
   cursor: pointer;
   position: relative;
   background-color: rgba(0, 0, 0, 0.1);
-  border-bottom: 1px solid rgba(150, 150, 150, 0.5) !important;
 }
 details summary::-webkit-details-marker {
   color: transparent;
@@ -1256,6 +1255,9 @@ details summary::marker {
 }
 details.detailsOpen > summary:before {
   transform: rotate(90deg);
+}
+details[open] > summary {
+  border-bottom: 1px solid rgba(150, 150, 150, 0.5) !important;
 }
 summary:before {
   content: "";
