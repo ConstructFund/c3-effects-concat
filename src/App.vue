@@ -453,7 +453,7 @@ export default {
         fileDescription: lang.fileDescription,
         text: {
           effects: {
-            [id]: lang.text.effects[id.toLowerCase()],
+            [id.toLowerCase()]: lang.text.effects[id.toLowerCase()],
           },
         },
       };
@@ -495,6 +495,7 @@ export default {
         id: effect.json.id,
         fx: effect.glsl,
         lang: JSON.parse(JSON.stringify(effect.lang)),
+        langId: effect.json.id.toLowerCase(),
         number: 0,
       };
 
@@ -521,6 +522,7 @@ export default {
     },
     processAST(addon) {
       let id = addon.id;
+      let langId = addon.langId;
       let processedEffects = this.processedEffects;
       processedEffects[id] = processedEffects[id] || [];
       let number = processedEffects[id].length;
@@ -573,23 +575,18 @@ export default {
         let uniformParam = dataContent.parameters.find(
           (x) => x.uniform === key
         );
-        if (uniformParam) {
+
+        if (uniformParam && langId) {
           let lang =
-            langContent.text.effects[id.toLowerCase()].parameters[
-              uniformParam.id
-            ];
+            langContent.text.effects[langId].parameters[uniformParam.id];
           // remove that lang from the lang file
-          delete langContent.text.effects[id.toLowerCase()].parameters[
-            uniformParam.id
-          ];
+          delete langContent.text.effects[langId].parameters[uniformParam.id];
           if (uniformParam) {
             uniformParam.id = `${id}${number.toString()}_${uniformParam.id}`;
             uniformParam.uniform = child.data;
           }
           // add it back to lang with the correct id
-          langContent.text.effects[id.toLowerCase()].parameters[
-            uniformParam.id
-          ] = lang;
+          langContent.text.effects[langId].parameters[uniformParam.id] = lang;
         } else {
           console.log(
             `${id}${number.toString()}_${key} not found in data.json`
@@ -759,6 +756,24 @@ export default {
                 } else {
                   addon.nbTextureReads = 0;
                 }
+
+                let langId = null;
+                let id = addon.id;
+                if (addon.lang.text.effects[id.toLowerCase()]) {
+                  langId = id.toLowerCase();
+                } else if (addon.lang.text.effects[id]) {
+                  langId = id;
+                } else {
+                  let keys = Object.keys(addon.lang.text.effects);
+                  if (keys.length === 1) {
+                    langId = keys[0];
+                  }
+                }
+                addon.langId = langId;
+                if (!langId) {
+                  throw "Could not find language data for addon";
+                }
+
                 // if addons already contains addon, replace it
                 let index = this.addons.findIndex(
                   (element) => element.id === addon.id
@@ -784,9 +799,6 @@ export default {
         })
       ).then(() => {
         this.files = [];
-        this.addons.forEach((addon) => {
-          this.processEffect(addon);
-        });
       });
     },
     onGenerate() {
@@ -1004,9 +1016,7 @@ export default {
         name: this.forceName
           ? this.customName
           : addons
-              .map(
-                (addon) => addon.lang.text.effects[addon.id.toLowerCase()].name
-              )
+              .map((addon) => addon.lang.text.effects[addon.langId].name)
               .join(" + "),
         description: this.forceDescription
           ? this.customDescription
@@ -1016,7 +1026,7 @@ export default {
       addons.forEach((addon) => {
         params = {
           ...params,
-          ...addon.lang.text.effects[addon.id.toLowerCase()].parameters,
+          ...addon.lang.text.effects[addon.langId].parameters,
         };
       });
       resultData.text.effects[id.toLowerCase()].parameters = params;
