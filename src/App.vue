@@ -709,7 +709,8 @@ export default {
     onFileChanged(e) {
       this.files = [...e.target.files];
       this.onFileChange(this.files);
-      // Do whatever you need with the file, liek reading it with FileReader
+      // clear the file input
+      e.target.value = "";
     },
     remove(element) {
       this.addons = this.addons.filter((addon) => addon !== element);
