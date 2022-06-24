@@ -108,7 +108,7 @@
             <transition-group>
               <v-layout
                 row
-                style="flex-wrap: nowrap"
+                style="flex-wrap: nowrap; margin-left: 0; margin-right: 0"
                 v-for="element in addons"
                 :key="`${element.data.id}${element.number}`"
                 class="list-group-item"
@@ -508,6 +508,13 @@ export default {
         addon.nbTextureReads = 0;
       }
 
+      let readInForLoopRegex =
+        /for *\([^{]*{[^{}]*texture2D\( *samplerFront *,[^}]*}/g;
+      matches = addon.fx.match(readInForLoopRegex);
+      if (matches) {
+        addon.nbTextureReads = 999;
+      }
+
       let index = this.addons.findIndex((element) => element.id === addon.id);
       if (index !== -1) {
         addon.number = this.addons.filter(
@@ -533,7 +540,7 @@ export default {
       console.log("Processing AST for " + id);
       //HACK to fix bug with macros being used instead of precision keywords
       let precisionMacroRegex =
-        /#ifdef GL_FRAGMENT_PRECISION_HIGH[^#]*#define (\w+) \w+(?:[^#]*#)*endif/g;
+        /#ifdef GL_FRAGMENT_PRECISION_HIGH[^#]*#define +(\w+) +\w+(?:[^#]*#)*endif/g;
 
       // remove precision macros
       let match;
@@ -625,11 +632,16 @@ export default {
 
       preprocessors.forEach((preprocessor) => {
         let data = preprocessor.token.data;
-        let dataArr = data.split(" ");
-        let name = dataArr[1];
-        dataArr[1] = id + number.toString() + "_" + dataArr[1];
-        let newName = dataArr[1];
-        preprocessor.token.data = dataArr.join(" ");
+        let defineRefex = /#define +([^( ]+)(\([^)]*\))? +(.*)$/;
+        // get the name of the define
+        let match = defineRefex.exec(data);
+        let name = match[1];
+        let args = match[2];
+        let value = match[3];
+        let newName = id + number.toString() + "_" + name;
+        preprocessor.token.data = `#define ${newName}${
+          args === undefined ? "" : args
+        } ${value}`;
         // find all "ident" nodes that are the same name, and rename them to the new name
         renamePreprocessorRecursively(ast, name, newName);
       });
@@ -755,6 +767,13 @@ export default {
                   addon.nbTextureReads = matches.length;
                 } else {
                   addon.nbTextureReads = 0;
+                }
+
+                let readInForLoopRegex =
+                  /for *\([^{]*{[^{}]*texture2D\( *samplerFront *,[^}]*}/g;
+                matches = addon.fx.match(readInForLoopRegex);
+                if (matches) {
+                  addon.nbTextureReads = 999;
                 }
 
                 let langId = null;
