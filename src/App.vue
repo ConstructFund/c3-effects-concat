@@ -2,7 +2,9 @@
   <v-app>
     <v-app-bar absolute dense flat>
       <v-layout row justify-center align-center style="margin: 0px 5px">
-        <v-toolbar-title>C3 Effects Concatenator</v-toolbar-title>
+        <v-toolbar-title class="d-none-xs">
+          C3 Effects Concatenator
+        </v-toolbar-title>
         <v-spacer></v-spacer>
         <v-btn color="primary" @click="onIssue" outlined>Report an issue</v-btn>
         <v-divider vertical style="margin-right: 15px"></v-divider>
@@ -35,8 +37,27 @@
               margin-bottom: 30px;
             "
           >
-            <v-card style="height: 286px; flex: 8" class="c3effectslist">
-              <v-card-title> Add a vanilla C3 effect </v-card-title>
+            <v-card
+              style="
+                height: 286px;
+                flex: 8;
+                display: flex;
+                flex-direction: column;
+              "
+              class="c3effectslist"
+            >
+              <v-card-title
+                style="
+                  word-break: initial;
+                  background-color: rgba(0, 0, 0, 0.1);
+                  border-bottom: 1px solid rgba(150, 150, 150, 0.5);
+                  margin-bottom: 10px;
+                  padding-bottom: 6px;
+                  padding-top: 13px;
+                "
+              >
+                Add a vanilla C3 effect
+              </v-card-title>
 
               <v-text-field
                 v-model="search"
@@ -44,10 +65,10 @@
                 single-line
                 dense
                 hide-details
-                style="margin: 0px 0px 0px 10px"
+                style="margin: 0px 0px 0px 10px; flex: 0 0 26px"
               ></v-text-field>
               <v-list
-                style="height: 195px; bottom: 0; overflow-y: auto"
+                style="bottom: 0; overflow-y: auto; flex: 1"
                 subheader
                 dense
                 class="transparent"
@@ -92,7 +113,9 @@
               :loading="isSelecting"
               @click="handleFileImport"
             >
-              Add 3rd party effects
+              <span style="white-space: normal; width: 100%">
+                Add 3rd party effects
+              </span>
             </v-btn>
           </v-layout>
 
@@ -1077,7 +1100,6 @@ body {
   -webkit-box-direction: normal;
   flex-direction: column;
   padding-left: 0;
-  margin-bottom: 20px;
 }
 .list-group-item {
   cursor: move;
@@ -1134,28 +1156,13 @@ body {
   /* radius */
   border-radius: 12px !important;
   /* dashed border */
-  border: 1px solid #ccc !important;
+  border: 1px solid rgba(150, 150, 150, 0.5) !important;
   border-top-right-radius: 0 !important;
   border-bottom-right-radius: 0 !important;
 }
 /* width */
 ::-webkit-scrollbar {
   width: 8px;
-}
-
-/* Track */
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
-
-/* Handle */
-::-webkit-scrollbar-thumb {
-  background: #888;
-}
-
-/* Handle on hover */
-::-webkit-scrollbar-thumb:hover {
-  background: #555;
 }
 
 .concatenatedAddon {
@@ -1206,8 +1213,13 @@ body {
   }
 }
 
+.v-btn__content {
+  flex: 1 0 !important;
+}
+
 details {
   /* border and a paddingLeft */
+  margin-top: 20px;
   border: 1px solid rgba(150, 150, 150, 0.5) !important;
   border-radius: 0.25rem !important;
 }
@@ -1221,7 +1233,10 @@ summary {
   padding: 1rem;
   padding-left: 2.2rem;
   display: block;
+  cursor: pointer;
   position: relative;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid rgba(150, 150, 150, 0.5) !important;
 }
 details summary::-webkit-details-marker {
   color: transparent;
@@ -1244,4 +1259,24 @@ summary:before {
   transform-origin: 0.2rem 50%;
   transition: 0.25s transform ease;
 }
+
+@media screen and (max-width: 600px) {
+  .d-none-xs {
+    display: none !important;
+  }
+}
+</style>
+<style lang="sass">
+@import '~vuetify/src/styles/main.sass'
++theme(v-application) using ($material)
+  summary:before
+    border-color: transparent transparent transparent map-deep-get($material, 'text', 'primary')
+
+  ::-webkit-scrollbar-thumb
+    background-color: map-deep-get($material, 'text', 'primary')
+  ::-webkit-scrollbar-thumb:hover
+    background-color: map-deep-get($material, 'text', 'secondary')
+
+  ::-webkit-scrollbar-track
+    background-color: rgba(map-deep-get($material, 'text', 'disabled'), 0.12)
 </style>
